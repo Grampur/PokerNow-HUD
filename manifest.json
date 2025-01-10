@@ -1,0 +1,31 @@
+{
+    "manifest_version": 3,
+    "name": "PokerNow HUD",
+    "version": "1.0",
+    "description": "A HUD for PokerNow that displays player stats and hand actions.",
+    "permissions": ["activeTab", "scripting", "storage"],
+    "host_permissions": ["*://pokernow.club/*"],
+    "content_scripts": [
+      {
+        "matches": ["*://pokernow.club/*"],
+        "js": ["content.js"],
+        "css": ["styles/styles.css"]
+      }
+    ],
+    "background": {
+      "service_worker": "background.js"
+    },
+    "action": {
+      "default_title": "PokerNow HUD",
+      "default_popup": "popup/popup.html",
+      "default_icon": {
+        "16": "icons/poker-chip.png",
+        "48": "icons/symbol-of-spades.png",
+        "128": "icons/king.png"
+      }
+    },
+    "icons": {
+      "128": "icons/king.png"
+    }
+  }
+  
