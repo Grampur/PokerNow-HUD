@@ -1,29 +1,35 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <title>PokerNow HUD</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 10px;
-      padding: 0;
-    }
-    button {
-      background: #007bff;
-      color: white;
-      border: none;
-      padding: 8px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #0056b3;
-    }
-  </style>
-</head>
-<body>
-  <h3>PokerNow HUD</h3>
-  <button id="enableHUD">Enable HUD</button>
+<html>
+  <head>
+    <title>PokerNow HUD Settings</title>
+    <style>
+      body {
+        width: 200px;
+        height: 150px;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        padding: 10px;
+      }
+
+      button {
+        width: 100%;
+        padding: 10px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background-color: #45a049;
+      }
+    </style>
+  </head>
+  <body>
+    <h3>PokerNow HUD</h3>
+    <p>Enable or Disable HUD:</p>
+    <button id="enable-hud">Enable HUD</button>
+  </body>
+
   <script src="popup.js"></script>
-</body>
 </html>

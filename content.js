@@ -1,89 +1,62 @@
-let lastBottom = 0; // Track the bottom of the last HUD
+// content.js
 
-function createPlayerHUD(playerName) {
-    if (!document.getElementById(`hud-${playerName}`)) {
-        const hud = document.createElement('div');
-        hud.id = `hud-${playerName}`;
-        hud.style.position = 'absolute';
-        hud.style.zIndex = '9999';
-        hud.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-        hud.style.color = 'white';
-        hud.style.padding = '5px';
-        hud.style.borderRadius = '5px';
-        hud.style.fontFamily = 'Arial, sans-serif';
-        hud.style.fontSize = '12px';
-        hud.style.textAlign = 'left';
-        hud.innerHTML = `<h4>${playerName}</h4><ul id="action-log-${playerName}" style="list-style:none; padding: 0; margin: 0;"></ul>`;
-        document.body.appendChild(hud);
+// Run when the page loads or updates
+document.addEventListener('DOMContentLoaded', () => {
+  initHUD();
+});
 
-        const playerElement = document.querySelector(`[data-player-name="${playerName}"]`);
-        if (playerElement) {
-            const rect = playerElement.getBoundingClientRect();
-            let topPosition = rect.bottom + window.scrollY + 10;
-            
-            // Check if the new HUD overlaps with the last one, and adjust if necessary
-            if (topPosition < lastBottom) {
-                topPosition = lastBottom + 10; // Add some space to avoid overlap
-            }
-            
-            hud.style.top = `${topPosition}px`;
-            hud.style.left = `${rect.left + window.scrollX}px`;
+// Function to initialize the HUD and inject boxes
+function initHUD() {
+  const tablePlayers = document.querySelectorAll('.player');  // Adjust selector as per PokerNow layout
+  const hudContainer = createHUDContainer();
 
-            lastBottom = topPosition + rect.height + 10; // Update last bottom position
-        }
-    }
+  tablePlayers.forEach((player, index) => {
+    const playerBox = createPlayerBox(index);  // Create an individual box for each player
+    hudContainer.appendChild(playerBox);
+  });
+
+  document.body.appendChild(hudContainer);
 }
 
-
-// Function to log player actions in their HUD
-function logPlayerAction(playerName, action, amount = '') {
-    createPlayerHUD(playerName);
-    const log = document.getElementById(`action-log-${playerName}`);
-    const actionItem = document.createElement('li');
-    actionItem.textContent = `${action}${amount ? ` (${amount})` : ''}`;
-    log.appendChild(actionItem);
+// Function to create a container for all the HUD boxes
+function createHUDContainer() {
+  const container = document.createElement('div');
+  container.style.position = 'absolute';
+  container.style.top = '0';  // Adjust positioning as needed
+  container.style.left = '0';
+  container.style.zIndex = '9999';
+  return container;
 }
 
-// Function to clear all player HUDs at the end of a hand
-function clearPlayerHUDs() {
-    document.querySelectorAll('[id^="hud-"]').forEach(hud => hud.remove());
+// Function to create an individual player box
+function createPlayerBox(playerIndex) {
+  const box = document.createElement('div');
+  box.classList.add('player-box');
+  box.style.width = '120px';
+  box.style.height = '80px';
+  box.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+  box.style.color = '#fff';
+  box.style.position = 'absolute';
+  box.style.top = `${playerIndex * 100}px`;  // Example for placement, adjust as needed
+  box.style.left = `${playerIndex * 150}px`;  // Example for placement, adjust as needed
+  box.innerText = `Player ${playerIndex + 1}\nVPIP: 0%\nPFR: 0%`; // Placeholder text
+
+  return box;
 }
 
-// Function to parse the session log
-function parseSessionLog() {
-    const logEntries = document.querySelectorAll('.log-modal-entries .entry-ctn');
-
-    logEntries.forEach(entry => {
-        const content = entry.querySelector('.content').textContent.trim();
-        console.log('Parsing log entry:', content); // Log each log entry to debug
-
-        // Match log entries to players and actions
-        if (content.includes('posts a big blind') || content.includes('posts a small blind')) {
-            // Big blind and small blind actions
-            const playerName = content.split(' posts')[0];
-            logPlayerAction(playerName, 'posted blind');
-        } else if (content.includes('folds')) {
-            const playerName = content.split(' folds')[0];
-            logPlayerAction(playerName, 'folded');
-        } else if (content.includes('raises to')) {
-            const [playerName, amount] = content.split(' raises to ');
-            logPlayerAction(playerName, 'raised', `$${amount}`);
-        } else if (content.includes('bets')) {
-            const [playerName, amount] = content.split(' bets ');
-            logPlayerAction(playerName, 'bet', `$${amount}`);
-        } else if (content.includes('calls')) {
-            const [playerName, amount] = content.split(' calls ');
-            logPlayerAction(playerName, 'called', `$${amount}`);
-        } else if (content.includes('collected')) {
-            const playerName = content.split(' collected')[0];
-            logPlayerAction(playerName, 'won the hand');
-        } else if (content.includes('-- ending hand')) {
-            clearPlayerHUDs(); // Clear HUDs at the end of the hand
-        }
-    });
+// Function to fetch stats for the player (replace with actual data-fetching logic)
+function fetchPlayerStats(playerIndex) {
+  // Mock data for demonstration purposes
+  return {
+    vpip: Math.floor(Math.random() * 100),  // Random VPIP for example
+    pfr: Math.floor(Math.random() * 100),   // Random PFR for example
+    aggressionFactor: Math.random().toFixed(2)  // Random aggression factor for example
+  };
 }
 
-// Periodically update the HUD from the session log
-setInterval(() => {
-    parseSessionLog();
-}, 2000);
+// Update the player box with real stats
+function updatePlayerBox(playerBox, playerIndex) {
+  const stats = fetchPlayerStats(playerIndex);
+  playerBox.innerText = `Player ${playerIndex + 1}\nVPIP: ${stats.vpip}%\nPFR: ${stats.pfr}%\nAF: ${stats.aggressionFactor}`;
+}
+

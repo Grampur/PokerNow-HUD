@@ -1,19 +1,74 @@
-#poker-hud {
-    width: 200px;
-    max-height: 300px;
-    overflow-y: auto;
-    border: 1px solid #ffffff;
-    font-size: 14px;
-  }
-  
-  #action-log {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-  
-  #action-log li {
-    margin-bottom: 5px;
-    line-height: 1.5;
-  }
-  
+/* Global styles */
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Ensure the HUD doesn't create scrollbars */
+}
+
+/* HUD Container */
+#hud-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  pointer-events: none;  /* Make sure the HUD doesn’t interfere with clicks on the table */
+}
+
+/* Player Box */
+.player-box {
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent dark background */
+  color: white; /* Text color */
+  padding: 8px;
+  border-radius: 5px; /* Rounded corners */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 120px;
+  height: 80px;
+  text-align: center;
+  pointer-events: all;  /* Allow interaction if needed */
+}
+
+/* Player Box: Default State (Empty) */
+.player-box.empty {
+  background-color: rgba(0, 0, 0, 0.3); /* Lighter background for empty player spots */
+}
+
+/* Player Box: Active State (Player Playing) */
+.player-box.active {
+  background-color: rgba(0, 128, 0, 0.7); /* Greenish background for active players */
+}
+
+/* Text Styling Inside Player Box */
+.player-box span {
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+/* Player Stats */
+.player-stats {
+  font-size: 12px;
+  margin-top: 5px;
+  color: #f0f0f0; /* Lighter text color for stats */
+}
+
+/* Tooltip for additional stats or actions */
+.tooltip {
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 5px;
+  border-radius: 5px;
+  font-size: 12px;
+  display: none;
+  pointer-events: none;
+}
+
+.tooltip.visible {
+  display: block;
+}
