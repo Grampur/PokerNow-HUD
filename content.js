@@ -1,4 +1,20 @@
-let lastBottom = 0; // Track the bottom of the last HUD
+// Track the last action for each player and current street
+const playerLastActions = {};
+let currentStreet = 'Preflop';
+
+// Add function to determine current street
+function updateCurrentStreet() {
+    const communityCards = document.querySelector('.table-cards');
+    if (!communityCards) return 'Preflop';
+    
+    const cardCount = communityCards.children.length;
+    if (cardCount === 0) return 'Preflop';
+    if (cardCount === 3) return 'Flop';
+    if (cardCount === 4) return 'Turn';
+    if (cardCount === 5) return 'River';
+    
+    return 'Preflop';
+}
 
 function createPlayerHUD(playerName) {
     if (!document.getElementById(`hud-${playerName}`)) {
@@ -16,77 +32,131 @@ function createPlayerHUD(playerName) {
         hud.innerHTML = `<h4>${playerName}</h4><ul id="action-log-${playerName}" style="list-style:none; padding: 0; margin: 0;"></ul>`;
         document.body.appendChild(hud);
 
-        // Find the player's name element by looking for the link containing the player name
         const playerNameLink = Array.from(document.querySelectorAll('.table-player-name a')).find(
             link => link.textContent === playerName
         );
 
         if (playerNameLink) {
-            // Get the table-player div that contains this player
             const tablePlayerDiv = playerNameLink.closest('.table-player');
             const rect = tablePlayerDiv.getBoundingClientRect();
             
-            // Position the HUD above the player's table position
-            hud.style.top = `${rect.top + window.scrollY - 5}px`; // 5px above the player div
+            hud.style.top = `${rect.top + window.scrollY - 5}px`;
             hud.style.left = `${rect.left + window.scrollX}px`;
             
-            // Get the HUD's height and adjust its position upward
             const hudHeight = hud.getBoundingClientRect().height;
-            hud.style.top = `${rect.top + window.scrollY - hudHeight - 10}px`; // Position above with 10px gap
+            hud.style.top = `${rect.top + window.scrollY - hudHeight - 10}px`;
         }
     }
 }
 
-
-// Function to log player actions in their HUD
 function logPlayerAction(playerName, action, amount = '') {
+    const currentAction = `${action}${amount ? ` ${amount}` : ''}`;
+    
+    // Check if this is the same as the player's last action
+    if (playerLastActions[playerName] === currentAction) {
+        return; // Skip if it's a duplicate action
+    }
+    
+    // Update the player's last action
+    playerLastActions[playerName] = currentAction;
+    
     createPlayerHUD(playerName);
     const log = document.getElementById(`action-log-${playerName}`);
     const actionItem = document.createElement('li');
-    actionItem.textContent = `${action}${amount ? ` (${amount})` : ''}`;
+    
+    // Update current street
+    currentStreet = updateCurrentStreet();
+    
+    // Format the action text
+    let actionText = '';
+    if (action === 'check') {
+        actionText = `[${currentStreet}] checks`;
+    } else if (action === 'raised to') {
+        actionText = `[${currentStreet}] raised to ${amount}`;
+    } else {
+        actionText = `[${currentStreet}] ${action}${amount ? ` ${amount}` : ''}`;
+    }
+    
+    actionItem.textContent = actionText;
+    
+    // Keep only the last 5 actions
+    while (log.children.length >= 5) {
+        log.removeChild(log.firstChild);
+    }
+    
     log.appendChild(actionItem);
 }
 
-// Function to clear all player HUDs at the end of a hand
 function clearPlayerHUDs() {
     document.querySelectorAll('[id^="hud-"]').forEach(hud => hud.remove());
+    Object.keys(playerLastActions).forEach(key => delete playerLastActions[key]);
+    currentStreet = 'Preflop';
 }
 
-// Function to parse the session log
-function parseSessionLog() {
-    const logEntries = document.querySelectorAll('.log-modal-entries .entry-ctn');
+function setupActionObserver() {
+    const tableElement = document.querySelector('.table');
+    if (!tableElement) return;
 
-    logEntries.forEach(entry => {
-        const content = entry.querySelector('.content').textContent.trim();
-        console.log('Parsing log entry:', content); // Log each log entry to debug
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            // Update current street when community cards change
+            if (mutation.target.classList.contains('table-cards')) {
+                currentStreet = updateCurrentStreet();
+                if (mutation.target.children.length === 0) {
+                    clearPlayerHUDs();
+                }
+            }
 
-        // Match log entries to players and actions
-        if (content.includes('posts a big blind') || content.includes('posts a small blind')) {
-            // Big blind and small blind actions
-            const playerName = content.split(' posts')[0];
-            logPlayerAction(playerName, 'posted blind');
-        } else if (content.includes('folds')) {
-            const playerName = content.split(' folds')[0];
-            logPlayerAction(playerName, 'folded');
-        } else if (content.includes('raises to')) {
-            const [playerName, amount] = content.split(' raises to ');
-            logPlayerAction(playerName, 'raised', `$${amount}`);
-        } else if (content.includes('bets')) {
-            const [playerName, amount] = content.split(' bets ');
-            logPlayerAction(playerName, 'bet', `$${amount}`);
-        } else if (content.includes('calls')) {
-            const [playerName, amount] = content.split(' calls ');
-            logPlayerAction(playerName, 'called', `$${amount}`);
-        } else if (content.includes('collected')) {
-            const playerName = content.split(' collected')[0];
-            logPlayerAction(playerName, 'won the hand');
-        } else if (content.includes('-- ending hand')) {
-            clearPlayerHUDs(); // Clear HUDs at the end of the hand
-        }
+            if (mutation.target.classList.contains('table-player')) {
+                const playerElement = mutation.target;
+                const playerNameElement = playerElement.querySelector('.table-player-name a');
+                if (!playerNameElement) return;
+                
+                const playerName = playerNameElement.textContent;
+
+                if (playerElement.classList.contains('fold')) {
+                    logPlayerAction(playerName, 'folded');
+                }
+                
+                if (playerElement.classList.contains('check')) {
+                    logPlayerAction(playerName, 'check');
+                }
+                
+                const betValueElement = playerElement.querySelector('.table-player-bet-value');
+                if (betValueElement) {
+                    const betAmount = betValueElement.textContent.trim();
+                    if (betAmount && betAmount !== '0.00') {
+                        const potElement = document.querySelector('.table-pot-size .normal-value');
+                        const potAmount = potElement ? potElement.textContent.trim() : '0.00';
+                        
+                        if (potAmount === '0.00') {
+                            logPlayerAction(playerName, 'bet', `$${betAmount}`);
+                        } else {
+                            logPlayerAction(playerName, 'raised to', `$${betAmount}`);
+                        }
+                    }
+                }
+
+                if (playerElement.classList.contains('call')) {
+                    const betAmount = betValueElement ? betValueElement.textContent.trim() : '';
+                    logPlayerAction(playerName, 'called', betAmount ? `$${betAmount}` : '');
+                }
+            }
+        });
+    });
+
+    observer.observe(tableElement, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ['class']
     });
 }
 
-// Periodically update the HUD from the session log
-setInterval(() => {
-    parseSessionLog();
-}, 2000);
+// Initialize when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    setupActionObserver();
+});
+
+// Initialize when HUD is enabled via popup
+setupActionObserver();
