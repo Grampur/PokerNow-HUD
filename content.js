@@ -16,20 +16,23 @@ function createPlayerHUD(playerName) {
         hud.innerHTML = `<h4>${playerName}</h4><ul id="action-log-${playerName}" style="list-style:none; padding: 0; margin: 0;"></ul>`;
         document.body.appendChild(hud);
 
-        const playerElement = document.querySelector(`[data-player-name="${playerName}"]`);
-        if (playerElement) {
-            const rect = playerElement.getBoundingClientRect();
-            let topPosition = rect.bottom + window.scrollY + 10;
-            
-            // Check if the new HUD overlaps with the last one, and adjust if necessary
-            if (topPosition < lastBottom) {
-                topPosition = lastBottom + 10; // Add some space to avoid overlap
-            }
-            
-            hud.style.top = `${topPosition}px`;
-            hud.style.left = `${rect.left + window.scrollX}px`;
+        // Find the player's name element by looking for the link containing the player name
+        const playerNameLink = Array.from(document.querySelectorAll('.table-player-name a')).find(
+            link => link.textContent === playerName
+        );
 
-            lastBottom = topPosition + rect.height + 10; // Update last bottom position
+        if (playerNameLink) {
+            // Get the table-player div that contains this player
+            const tablePlayerDiv = playerNameLink.closest('.table-player');
+            const rect = tablePlayerDiv.getBoundingClientRect();
+            
+            // Position the HUD above the player's table position
+            hud.style.top = `${rect.top + window.scrollY - 5}px`; // 5px above the player div
+            hud.style.left = `${rect.left + window.scrollX}px`;
+            
+            // Get the HUD's height and adjust its position upward
+            const hudHeight = hud.getBoundingClientRect().height;
+            hud.style.top = `${rect.top + window.scrollY - hudHeight - 10}px`; // Position above with 10px gap
         }
     }
 }
