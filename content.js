@@ -2,6 +2,7 @@
 const playerLastActions = {};
 const playerBlindStatus = {};
 const playerActionHistory = {};
+const foldedPlayers = {};
 let currentStreet = 'Preflop';
 
 // Function to get blind amounts from the table
@@ -10,12 +11,15 @@ function getBlinds() {
     if (blindValueContainer) {
         const blindValues = blindValueContainer.querySelectorAll('.normal-value');
         if (blindValues.length === 2) {
-            return {
-                smallBlind: blindValues[0].textContent,
-                bigBlind: blindValues[1].textContent
+            const blinds = {
+                smallBlind: blindValues[0].textContent.trim(),
+                bigBlind: blindValues[1].textContent.trim()
             };
+            console.log('Detected blinds:', blinds); // Add logging
+            return blinds;
         }
     }
+    console.log('Could not detect blinds'); // Add logging
     return null;
 }
 
@@ -107,95 +111,94 @@ function createPlayerHUD(playerName) {
 }
 
 function logPlayerAction(playerName, action, amount = '') {
+
+    if (foldedPlayers[playerName] && action === 'folded') {
+        return;
+    }
+
     const currentAction = `${action}${amount ? ` ${amount}` : ''}`;
-    
-    // Create a unique key for this action in the current street
     const actionKey = `${playerName}-${currentStreet}-${currentAction}`;
     
+    if (action === 'folded') {
+        foldedPlayers[playerName] = true;
+    }
+
     // Special handling for blind posts
     if (action === 'bet' && currentStreet === 'Preflop') {
         const blinds = getBlinds();
         const blindPositions = getBlindPositions();
         
         if (blinds && blindPositions) {
-            const amountValue = amount ? amount.replace('$', '') : '';
+            const amountValue = amount ? amount.replace('$', '').trim() : '';
+            console.log('Checking blind action:', {
+                playerName,
+                amountValue,
+                blinds,
+                blindPositions
+            });
             
             // Handle Small Blind
             if (playerName === blindPositions.smallBlind.playerName && 
-                amountValue === blinds.smallBlind) {
+                parseFloat(amountValue) === parseFloat(blinds.smallBlind)) {
                 
                 const blindAction = `Posted Small Blind ${amount}`;
-                // Check if this blind action was already logged in this street
-                if (playerActionHistory[actionKey]) {
-                    return;
-                }
-                
-                createPlayerHUD(playerName);
-                const hud = document.getElementById(`hud-${playerName}`);
-                if (hud) {
-                    const titleElement = hud.querySelector('h4');
-                    if (titleElement) {
-                        titleElement.textContent = `${playerName} SMALL BLIND`;
+                if (!playerActionHistory[actionKey]) {
+                    console.log('Logging small blind for:', playerName);
+                    createPlayerHUD(playerName);
+                    updateHUDTitle(playerName, 'SMALL BLIND');
+                    
+                    const log = document.getElementById(`action-log-${playerName}`);
+                    if (log) {
+                        const actionItem = document.createElement('li');
+                        actionItem.textContent = `[${currentStreet}] ${blindAction}`;
+                        log.appendChild(actionItem);
+                        
+                        while (log.children.length >= 5) {
+                            log.removeChild(log.firstChild);
+                        }
                     }
+                    
+                    playerActionHistory[actionKey] = true;
+                    playerLastActions[playerName] = blindAction;
+                    playerBlindStatus[playerName] = 'SMALL BLIND';
                 }
-                const log = document.getElementById(`action-log-${playerName}`);
-                const actionItem = document.createElement('li');
-                actionItem.textContent = `[${currentStreet}] ${blindAction}`;
-                
-                // Store this action in history
-                playerActionHistory[actionKey] = true;
-                playerLastActions[playerName] = blindAction;
-                
-                while (log.children.length >= 5) {
-                    log.removeChild(log.firstChild);
-                }
-                
-                log.appendChild(actionItem);
                 return;
             }
             
             // Handle Big Blind
             if (playerName === blindPositions.bigBlind.playerName && 
-                amountValue === blinds.bigBlind) {
+                parseFloat(amountValue) === parseFloat(blinds.bigBlind)) {
                 
                 const blindAction = `Posted Big Blind ${amount}`;
-                // Check if this blind action was already logged in this street
-                if (playerActionHistory[actionKey]) {
-                    return;
-                }
-                
-                createPlayerHUD(playerName);
-                const hud = document.getElementById(`hud-${playerName}`);
-                if (hud) {
-                    const titleElement = hud.querySelector('h4');
-                    if (titleElement) {
-                        titleElement.textContent = `${playerName} BIG BLIND`;
+                if (!playerActionHistory[actionKey]) {
+                    console.log('Logging big blind for:', playerName);
+                    createPlayerHUD(playerName);
+                    updateHUDTitle(playerName, 'BIG BLIND');
+                    
+                    const log = document.getElementById(`action-log-${playerName}`);
+                    if (log) {
+                        const actionItem = document.createElement('li');
+                        actionItem.textContent = `[${currentStreet}] ${blindAction}`;
+                        log.appendChild(actionItem);
+                        
+                        while (log.children.length >= 5) {
+                            log.removeChild(log.firstChild);
+                        }
                     }
+                    
+                    playerActionHistory[actionKey] = true;
+                    playerLastActions[playerName] = blindAction;
+                    playerBlindStatus[playerName] = 'BIG BLIND';
                 }
-                const log = document.getElementById(`action-log-${playerName}`);
-                const actionItem = document.createElement('li');
-                actionItem.textContent = `[${currentStreet}] ${blindAction}`;
-                
-                // Store this action in history
-                playerActionHistory[actionKey] = true;
-                playerLastActions[playerName] = blindAction;
-                
-                while (log.children.length >= 5) {
-                    log.removeChild(log.firstChild);
-                }
-                
-                log.appendChild(actionItem);
                 return;
             }
         }
     }
     
-    // Check if this exact action was already logged in this street
     if (playerActionHistory[actionKey]) {
         return;
     }
     
-    // Update the player's last action and action history
     playerLastActions[playerName] = currentAction;
     playerActionHistory[actionKey] = true;
     
@@ -203,10 +206,8 @@ function logPlayerAction(playerName, action, amount = '') {
     const log = document.getElementById(`action-log-${playerName}`);
     const actionItem = document.createElement('li');
     
-    // Update current street
     currentStreet = updateCurrentStreet();
     
-    // Format the action text
     let actionText = '';
     if (action === 'check') {
         actionText = `[${currentStreet}] checks`;
@@ -226,14 +227,18 @@ function logPlayerAction(playerName, action, amount = '') {
 }
 
 function clearPlayerHUDs() {
+    // Remove all HUD elements
     document.querySelectorAll('[id^="hud-"]').forEach(hud => {
         const playerName = hud.querySelector('h4').textContent.split(' SMALL')[0];
         hud.querySelector('h4').textContent = playerName;
         hud.remove();
     });
+    
+    // Clear all tracking objects
     Object.keys(playerLastActions).forEach(key => delete playerLastActions[key]);
     Object.keys(playerBlindStatus).forEach(key => delete playerBlindStatus[key]);
     Object.keys(playerActionHistory).forEach(key => delete playerActionHistory[key]);
+    Object.keys(foldedPlayers).forEach(key => delete foldedPlayers[key]);
     currentStreet = 'Preflop';
 }
 
@@ -244,10 +249,18 @@ function setupActionObserver() {
     const observer = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
             if (mutation.target.classList.contains('table-cards')) {
-                currentStreet = updateCurrentStreet();
-                if (mutation.target.children.length === 0) {
-                    clearPlayerHUDs();
+                const newStreet = updateCurrentStreet();
+                
+                if ((currentStreet === 'River' && newStreet === 'Preflop') || 
+                    mutation.target.children.length === 0) {
+                    clearHUDData();
                 }
+                
+                currentStreet = newStreet;
+            }
+
+            if (mutation.target.classList.contains('dealer-button-ctn')) {
+                clearHUDData();
             }
 
             if (mutation.target.classList.contains('table-player')) {
@@ -256,6 +269,15 @@ function setupActionObserver() {
                 if (!playerNameElement) return;
                 
                 const playerName = playerNameElement.textContent;
+                const betValueElement = playerElement.querySelector('.table-player-bet-value');
+                
+                // Check for blind posts first
+                if (betValueElement && currentStreet === 'Preflop') {
+                    const betAmount = betValueElement.textContent.trim();
+                    if (betAmount && betAmount !== '0.00') {
+                        logPlayerAction(playerName, 'bet', `$${betAmount}`);
+                    }
+                }
 
                 if (playerElement.classList.contains('fold')) {
                     logPlayerAction(playerName, 'folded');
@@ -265,16 +287,15 @@ function setupActionObserver() {
                     logPlayerAction(playerName, 'check');
                 }
                 
-                const betValueElement = playerElement.querySelector('.table-player-bet-value');
                 if (betValueElement) {
                     const betAmount = betValueElement.textContent.trim();
                     if (betAmount && betAmount !== '0.00') {
                         const potElement = document.querySelector('.table-pot-size .normal-value');
                         const potAmount = potElement ? potElement.textContent.trim() : '0.00';
                         
-                        if (potAmount === '0.00') {
+                        if (potAmount === '0.00' && currentStreet !== 'Preflop') {
                             logPlayerAction(playerName, 'bet', `$${betAmount}`);
-                        } else {
+                        } else if (potAmount !== '0.00') {
                             logPlayerAction(playerName, 'raised to', `$${betAmount}`);
                         }
                     }
@@ -298,23 +319,14 @@ function setupActionObserver() {
 
 // Add this function to content.js
 function clearHUDData() {
-    // Clear the tracking objects
-    Object.keys(playerLastActions).forEach(key => delete playerLastActions[key]);
-    Object.keys(playerBlindStatus).forEach(key => delete playerBlindStatus[key]);
+    clearPlayerHUDs(); // Use existing clearPlayerHUDs function
     
-    // Reset current street
-    currentStreet = 'Preflop';
-    
-    // Clear the visual HUD elements
-    const hudElements = document.querySelectorAll('#poker-hud');
+    // Additional cleanup
+    const hudElements = document.querySelectorAll('[id^="hud-"]');
     hudElements.forEach(element => {
-        const actionLog = element.querySelector('#action-log');
-        if (actionLog) {
-            actionLog.innerHTML = ''; // Clear the action list
+        if (element && element.parentNode) {
+            element.parentNode.removeChild(element);
         }
-        // Reset any titles or headers
-        const titles = element.querySelectorAll('h3, h4');
-        titles.forEach(title => title.textContent = '');
     });
 }
 
