@@ -1,6 +1,7 @@
 // Track the last action for each player and current street
 const playerLastActions = {};
 const playerBlindStatus = {};
+const playerActionHistory = {};
 let currentStreet = 'Preflop';
 
 // Function to get blind amounts from the table
@@ -108,6 +109,9 @@ function createPlayerHUD(playerName) {
 function logPlayerAction(playerName, action, amount = '') {
     const currentAction = `${action}${amount ? ` ${amount}` : ''}`;
     
+    // Create a unique key for this action in the current street
+    const actionKey = `${playerName}-${currentStreet}-${currentAction}`;
+    
     // Special handling for blind posts
     if (action === 'bet' && currentStreet === 'Preflop') {
         const blinds = getBlinds();
@@ -120,9 +124,9 @@ function logPlayerAction(playerName, action, amount = '') {
             if (playerName === blindPositions.smallBlind.playerName && 
                 amountValue === blinds.smallBlind) {
                 
-                // Check if we've already logged this blind post
                 const blindAction = `Posted Small Blind ${amount}`;
-                if (playerLastActions[playerName] === blindAction) {
+                // Check if this blind action was already logged in this street
+                if (playerActionHistory[actionKey]) {
                     return;
                 }
                 
@@ -138,10 +142,10 @@ function logPlayerAction(playerName, action, amount = '') {
                 const actionItem = document.createElement('li');
                 actionItem.textContent = `[${currentStreet}] ${blindAction}`;
                 
-                // Store this as the last action
+                // Store this action in history
+                playerActionHistory[actionKey] = true;
                 playerLastActions[playerName] = blindAction;
                 
-                // Keep only the last 5 actions
                 while (log.children.length >= 5) {
                     log.removeChild(log.firstChild);
                 }
@@ -154,9 +158,9 @@ function logPlayerAction(playerName, action, amount = '') {
             if (playerName === blindPositions.bigBlind.playerName && 
                 amountValue === blinds.bigBlind) {
                 
-                // Check if we've already logged this blind post
                 const blindAction = `Posted Big Blind ${amount}`;
-                if (playerLastActions[playerName] === blindAction) {
+                // Check if this blind action was already logged in this street
+                if (playerActionHistory[actionKey]) {
                     return;
                 }
                 
@@ -172,10 +176,10 @@ function logPlayerAction(playerName, action, amount = '') {
                 const actionItem = document.createElement('li');
                 actionItem.textContent = `[${currentStreet}] ${blindAction}`;
                 
-                // Store this as the last action
+                // Store this action in history
+                playerActionHistory[actionKey] = true;
                 playerLastActions[playerName] = blindAction;
                 
-                // Keep only the last 5 actions
                 while (log.children.length >= 5) {
                     log.removeChild(log.firstChild);
                 }
@@ -186,13 +190,14 @@ function logPlayerAction(playerName, action, amount = '') {
         }
     }
     
-    // Check if this is the same as the player's last action
-    if (playerLastActions[playerName] === currentAction) {
-        return; // Skip if it's a duplicate action
+    // Check if this exact action was already logged in this street
+    if (playerActionHistory[actionKey]) {
+        return;
     }
     
-    // Update the player's last action
+    // Update the player's last action and action history
     playerLastActions[playerName] = currentAction;
+    playerActionHistory[actionKey] = true;
     
     createPlayerHUD(playerName);
     const log = document.getElementById(`action-log-${playerName}`);
@@ -213,7 +218,6 @@ function logPlayerAction(playerName, action, amount = '') {
     
     actionItem.textContent = actionText;
     
-    // Keep only the last 5 actions
     while (log.children.length >= 5) {
         log.removeChild(log.firstChild);
     }
@@ -223,12 +227,13 @@ function logPlayerAction(playerName, action, amount = '') {
 
 function clearPlayerHUDs() {
     document.querySelectorAll('[id^="hud-"]').forEach(hud => {
-        const playerName = hud.querySelector('h4').textContent.split(' SMALL')[0]; // Get original name
-        hud.querySelector('h4').textContent = playerName; // Reset to original name
+        const playerName = hud.querySelector('h4').textContent.split(' SMALL')[0];
+        hud.querySelector('h4').textContent = playerName;
         hud.remove();
     });
     Object.keys(playerLastActions).forEach(key => delete playerLastActions[key]);
     Object.keys(playerBlindStatus).forEach(key => delete playerBlindStatus[key]);
+    Object.keys(playerActionHistory).forEach(key => delete playerActionHistory[key]);
     currentStreet = 'Preflop';
 }
 
@@ -289,6 +294,33 @@ function setupActionObserver() {
         attributes: true,
         attributeFilter: ['class']
     });
+}
+
+// Add this function to content.js
+function clearHUDData() {
+    // Clear the tracking objects
+    Object.keys(playerLastActions).forEach(key => delete playerLastActions[key]);
+    Object.keys(playerBlindStatus).forEach(key => delete playerBlindStatus[key]);
+    
+    // Reset current street
+    currentStreet = 'Preflop';
+    
+    // Clear the visual HUD elements
+    const hudElements = document.querySelectorAll('#poker-hud');
+    hudElements.forEach(element => {
+        const actionLog = element.querySelector('#action-log');
+        if (actionLog) {
+            actionLog.innerHTML = ''; // Clear the action list
+        }
+        // Reset any titles or headers
+        const titles = element.querySelectorAll('h3, h4');
+        titles.forEach(title => title.textContent = '');
+    });
+}
+
+// Add this to where you detect the end of a hand
+function onHandComplete() {
+    clearHUDData();
 }
 
 // Initialize when the page loads
