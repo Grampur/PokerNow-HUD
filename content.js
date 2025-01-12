@@ -5,6 +5,12 @@ const playerActionHistory = {};
 const foldedPlayers = {};
 let currentStreet = 'Preflop';
 
+
+function isPlayerAway(playerElement) {
+    return playerElement.classList.contains('away') || 
+           playerElement.classList.contains('sitting-out');
+}
+
 // Function to get blind amounts from the table
 function getBlinds() {
     const blindValueContainer = document.querySelector('.blind-value');
@@ -33,18 +39,58 @@ function getBlindPositions() {
 
     const dealerPosition = parseInt(dealerPositionMatch[1]);
     let foundPositions = [];
+    let checkedPositions = 0;
 
+    // Find first active player for small blind
     for (let i = 1; i <= 10; i++) {
         let checkPosition = ((dealerPosition + i) % 10) || 10;
         const playerAtPosition = document.querySelector(`.table-player-${checkPosition}`);
         
         if (playerAtPosition && !playerAtPosition.classList.contains('table-player-seat')) {
+            // Skip if player is inactive
+            if (playerAtPosition.classList.contains('away') || 
+                playerAtPosition.classList.contains('sitting-out') ||
+                playerAtPosition.classList.contains('in-next-hand') ||
+                playerAtPosition.querySelector('.waiting-for-game-message')) {
+                continue;
+            }
+
             foundPositions.push({
                 position: checkPosition,
                 playerName: playerAtPosition.querySelector('.table-player-name a')?.textContent || ''
             });
+            break;  // Found small blind
+        }
+        checkedPositions++;
+        if (checkedPositions >= 10) break;
+    }
+
+    // Reset counter and find next active player for big blind
+    checkedPositions = 0;
+    const smallBlindPos = foundPositions[0]?.position;
+    
+    if (smallBlindPos) {
+        for (let i = 1; i <= 10; i++) {
+            let checkPosition = ((smallBlindPos + i) % 10) || 10;
+            const playerAtPosition = document.querySelector(`.table-player-${checkPosition}`);
             
-            if (foundPositions.length === 2) break;
+            if (playerAtPosition && !playerAtPosition.classList.contains('table-player-seat')) {
+                // Skip if player is inactive
+                if (playerAtPosition.classList.contains('away') || 
+                    playerAtPosition.classList.contains('sitting-out') ||
+                    playerAtPosition.classList.contains('in-next-hand') ||
+                    playerAtPosition.querySelector('.waiting-for-game-message')) {
+                    continue;
+                }
+
+                foundPositions.push({
+                    position: checkPosition,
+                    playerName: playerAtPosition.querySelector('.table-player-name a')?.textContent || ''
+                });
+                break;  // Found big blind
+            }
+            checkedPositions++;
+            if (checkedPositions >= 10) break;
         }
     }
 
@@ -111,6 +157,15 @@ function createPlayerHUD(playerName) {
 }
 
 function logPlayerAction(playerName, action, amount = '') {
+    // First check if the player is away
+    const playerElement = Array.from(document.querySelectorAll('.table-player-name a'))
+        .find(link => link.textContent === playerName)
+        ?.closest('.table-player');
+    
+    if (playerElement && (playerElement.classList.contains('away') || 
+                         playerElement.classList.contains('sitting-out'))) {
+        return;
+    }
 
     if (foldedPlayers[playerName] && action === 'folded') {
         return;
@@ -317,11 +372,9 @@ function setupActionObserver() {
     });
 }
 
-// Add this function to content.js
 function clearHUDData() {
     clearPlayerHUDs(); // Use existing clearPlayerHUDs function
     
-    // Additional cleanup
     const hudElements = document.querySelectorAll('[id^="hud-"]');
     hudElements.forEach(element => {
         if (element && element.parentNode) {
@@ -330,7 +383,7 @@ function clearHUDData() {
     });
 }
 
-// Add this to where you detect the end of a hand
+// detect the end of a hand
 function onHandComplete() {
     clearHUDData();
 }
