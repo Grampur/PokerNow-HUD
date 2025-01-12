@@ -41,16 +41,14 @@ function getBlindPositions() {
     let foundPositions = [];
     let checkedPositions = 0;
 
-    // Find first active player for small blind
+    // Find first player for small blind (skip empty seats and waiting players)
     for (let i = 1; i <= 10; i++) {
         let checkPosition = ((dealerPosition + i) % 10) || 10;
         const playerAtPosition = document.querySelector(`.table-player-${checkPosition}`);
         
         if (playerAtPosition && !playerAtPosition.classList.contains('table-player-seat')) {
-            // Skip if player is inactive
-            if (playerAtPosition.classList.contains('away') || 
-                playerAtPosition.classList.contains('sitting-out') ||
-                playerAtPosition.classList.contains('in-next-hand') ||
+            // Only skip players who are waiting for next hand or have waiting message
+            if (playerAtPosition.classList.contains('in-next-hand') ||
                 playerAtPosition.querySelector('.waiting-for-game-message')) {
                 continue;
             }
@@ -65,7 +63,7 @@ function getBlindPositions() {
         if (checkedPositions >= 10) break;
     }
 
-    // Reset counter and find next active player for big blind
+    // Find big blind position
     checkedPositions = 0;
     const smallBlindPos = foundPositions[0]?.position;
     
@@ -75,19 +73,18 @@ function getBlindPositions() {
             const playerAtPosition = document.querySelector(`.table-player-${checkPosition}`);
             
             if (playerAtPosition && !playerAtPosition.classList.contains('table-player-seat')) {
-                // Skip if player is inactive
-                if (playerAtPosition.classList.contains('away') || 
-                    playerAtPosition.classList.contains('sitting-out') ||
-                    playerAtPosition.classList.contains('in-next-hand') ||
+                // For big blind, only skip empty seats and waiting players
+                if (playerAtPosition.classList.contains('in-next-hand') ||
                     playerAtPosition.querySelector('.waiting-for-game-message')) {
                     continue;
                 }
 
+                // Include even if player is away/sitting-out
                 foundPositions.push({
                     position: checkPosition,
                     playerName: playerAtPosition.querySelector('.table-player-name a')?.textContent || ''
                 });
-                break;  // Found big blind
+                break;
             }
             checkedPositions++;
             if (checkedPositions >= 10) break;
@@ -157,12 +154,13 @@ function createPlayerHUD(playerName) {
 }
 
 function logPlayerAction(playerName, action, amount = '') {
-    // First check if the player is away
     const playerElement = Array.from(document.querySelectorAll('.table-player-name a'))
         .find(link => link.textContent === playerName)
         ?.closest('.table-player');
-    
-    if (playerElement && (playerElement.classList.contains('away') || 
+
+    // Only check for away status if this is not a blind action
+    const isBlindAction = action === 'bet' && currentStreet === 'Preflop';
+    if (!isBlindAction && playerElement && (playerElement.classList.contains('away') || 
                          playerElement.classList.contains('sitting-out'))) {
         return;
     }
