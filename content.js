@@ -158,13 +158,6 @@ function logPlayerAction(playerName, action, amount = '') {
         .find(link => link.textContent === playerName)
         ?.closest('.table-player');
 
-    // Only check for away status if this is not a blind action
-    const isBlindAction = action === 'bet' && currentStreet === 'Preflop';
-    if (!isBlindAction && playerElement && (playerElement.classList.contains('away') || 
-                         playerElement.classList.contains('sitting-out'))) {
-        return;
-    }
-
     if (foldedPlayers[playerName] && action === 'folded') {
         return;
     }
@@ -182,28 +175,22 @@ function logPlayerAction(playerName, action, amount = '') {
         const blindPositions = getBlindPositions();
         
         if (blinds && blindPositions) {
-            const amountValue = amount ? amount.replace('$', '').trim() : '';
-            console.log('Checking blind action:', {
-                playerName,
-                amountValue,
-                blinds,
-                blindPositions
-            });
+            const amountValue = amount ? parseFloat(amount.replace('$', '').trim()) : 0;
             
             // Handle Small Blind
             if (playerName === blindPositions.smallBlind.playerName && 
-                parseFloat(amountValue) === parseFloat(blinds.smallBlind)) {
+                amountValue === parseFloat(blinds.smallBlind)) {
                 
-                const blindAction = `Posted Small Blind ${amount}`;
-                if (!playerActionHistory[actionKey]) {
-                    console.log('Logging small blind for:', playerName);
+                // Check if this blind action was already logged
+                const blindActionKey = `${playerName}-${currentStreet}-smallblind`;
+                if (!playerActionHistory[blindActionKey]) {
                     createPlayerHUD(playerName);
                     updateHUDTitle(playerName, 'SMALL BLIND');
                     
                     const log = document.getElementById(`action-log-${playerName}`);
                     if (log) {
                         const actionItem = document.createElement('li');
-                        actionItem.textContent = `[${currentStreet}] ${blindAction}`;
+                        actionItem.textContent = `[${currentStreet}] Posted Small Blind ${amount}`;
                         log.appendChild(actionItem);
                         
                         while (log.children.length >= 5) {
@@ -211,8 +198,8 @@ function logPlayerAction(playerName, action, amount = '') {
                         }
                     }
                     
-                    playerActionHistory[actionKey] = true;
-                    playerLastActions[playerName] = blindAction;
+                    playerActionHistory[blindActionKey] = true;
+                    playerLastActions[playerName] = `Posted Small Blind ${amount}`;
                     playerBlindStatus[playerName] = 'SMALL BLIND';
                 }
                 return;
@@ -220,18 +207,18 @@ function logPlayerAction(playerName, action, amount = '') {
             
             // Handle Big Blind
             if (playerName === blindPositions.bigBlind.playerName && 
-                parseFloat(amountValue) === parseFloat(blinds.bigBlind)) {
+                amountValue === parseFloat(blinds.bigBlind)) {
                 
-                const blindAction = `Posted Big Blind ${amount}`;
-                if (!playerActionHistory[actionKey]) {
-                    console.log('Logging big blind for:', playerName);
+                // Check if this blind action was already logged
+                const blindActionKey = `${playerName}-${currentStreet}-bigblind`;
+                if (!playerActionHistory[blindActionKey]) {
                     createPlayerHUD(playerName);
                     updateHUDTitle(playerName, 'BIG BLIND');
                     
                     const log = document.getElementById(`action-log-${playerName}`);
                     if (log) {
                         const actionItem = document.createElement('li');
-                        actionItem.textContent = `[${currentStreet}] ${blindAction}`;
+                        actionItem.textContent = `[${currentStreet}] Posted Big Blind ${amount}`;
                         log.appendChild(actionItem);
                         
                         while (log.children.length >= 5) {
@@ -239,13 +226,19 @@ function logPlayerAction(playerName, action, amount = '') {
                         }
                     }
                     
-                    playerActionHistory[actionKey] = true;
-                    playerLastActions[playerName] = blindAction;
+                    playerActionHistory[blindActionKey] = true;
+                    playerLastActions[playerName] = `Posted Big Blind ${amount}`;
                     playerBlindStatus[playerName] = 'BIG BLIND';
                 }
                 return;
             }
         }
+    }
+
+    // Only check for away status if this is not a blind action
+    if (!playerActionHistory[actionKey] && playerElement && 
+        (playerElement.classList.contains('away') || playerElement.classList.contains('sitting-out'))) {
+        return;
     }
     
     if (playerActionHistory[actionKey]) {
