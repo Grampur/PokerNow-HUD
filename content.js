@@ -1,8 +1,54 @@
 // Track the last action for each player and current street
 const playerLastActions = {};
+const playerBlindStatus = {};
 let currentStreet = 'Preflop';
 
-// Add function to determine current street
+// Function to get blind amounts from the table
+function getBlinds() {
+    const blindValueContainer = document.querySelector('.blind-value');
+    if (blindValueContainer) {
+        const blindValues = blindValueContainer.querySelectorAll('.normal-value');
+        if (blindValues.length === 2) {
+            return {
+                smallBlind: blindValues[0].textContent,
+                bigBlind: blindValues[1].textContent
+            };
+        }
+    }
+    return null;
+}
+
+// Function to determine blind positions based on dealer button
+function getBlindPositions() {
+    const dealerButton = document.querySelector('.dealer-button-ctn');
+    if (!dealerButton) return null;
+
+    const dealerPositionMatch = dealerButton.className.match(/dealer-position-(\d+)/);
+    if (!dealerPositionMatch) return null;
+
+    const dealerPosition = parseInt(dealerPositionMatch[1]);
+    let foundPositions = [];
+
+    for (let i = 1; i <= 10; i++) {
+        let checkPosition = ((dealerPosition + i) % 10) || 10;
+        const playerAtPosition = document.querySelector(`.table-player-${checkPosition}`);
+        
+        if (playerAtPosition && !playerAtPosition.classList.contains('table-player-seat')) {
+            foundPositions.push({
+                position: checkPosition,
+                playerName: playerAtPosition.querySelector('.table-player-name a')?.textContent || ''
+            });
+            
+            if (foundPositions.length === 2) break;
+        }
+    }
+
+    return foundPositions.length === 2 ? {
+        smallBlind: foundPositions[0],
+        bigBlind: foundPositions[1]
+    } : null;
+}
+
 function updateCurrentStreet() {
     const communityCards = document.querySelector('.table-cards');
     if (!communityCards) return 'Preflop';
@@ -14,6 +60,16 @@ function updateCurrentStreet() {
     if (cardCount === 5) return 'River';
     
     return 'Preflop';
+}
+
+function updateHUDTitle(playerName, blindType) {
+    const hud = document.getElementById(`hud-${playerName}`);
+    if (hud) {
+        const titleElement = hud.querySelector('h4');
+        if (titleElement) {
+            titleElement.textContent = `${playerName} ${blindType}`;
+        }
+    }
 }
 
 function createPlayerHUD(playerName) {
@@ -52,6 +108,84 @@ function createPlayerHUD(playerName) {
 function logPlayerAction(playerName, action, amount = '') {
     const currentAction = `${action}${amount ? ` ${amount}` : ''}`;
     
+    // Special handling for blind posts
+    if (action === 'bet' && currentStreet === 'Preflop') {
+        const blinds = getBlinds();
+        const blindPositions = getBlindPositions();
+        
+        if (blinds && blindPositions) {
+            const amountValue = amount ? amount.replace('$', '') : '';
+            
+            // Handle Small Blind
+            if (playerName === blindPositions.smallBlind.playerName && 
+                amountValue === blinds.smallBlind) {
+                
+                // Check if we've already logged this blind post
+                const blindAction = `Posted Small Blind ${amount}`;
+                if (playerLastActions[playerName] === blindAction) {
+                    return;
+                }
+                
+                createPlayerHUD(playerName);
+                const hud = document.getElementById(`hud-${playerName}`);
+                if (hud) {
+                    const titleElement = hud.querySelector('h4');
+                    if (titleElement) {
+                        titleElement.textContent = `${playerName} SMALL BLIND`;
+                    }
+                }
+                const log = document.getElementById(`action-log-${playerName}`);
+                const actionItem = document.createElement('li');
+                actionItem.textContent = `[${currentStreet}] ${blindAction}`;
+                
+                // Store this as the last action
+                playerLastActions[playerName] = blindAction;
+                
+                // Keep only the last 5 actions
+                while (log.children.length >= 5) {
+                    log.removeChild(log.firstChild);
+                }
+                
+                log.appendChild(actionItem);
+                return;
+            }
+            
+            // Handle Big Blind
+            if (playerName === blindPositions.bigBlind.playerName && 
+                amountValue === blinds.bigBlind) {
+                
+                // Check if we've already logged this blind post
+                const blindAction = `Posted Big Blind ${amount}`;
+                if (playerLastActions[playerName] === blindAction) {
+                    return;
+                }
+                
+                createPlayerHUD(playerName);
+                const hud = document.getElementById(`hud-${playerName}`);
+                if (hud) {
+                    const titleElement = hud.querySelector('h4');
+                    if (titleElement) {
+                        titleElement.textContent = `${playerName} BIG BLIND`;
+                    }
+                }
+                const log = document.getElementById(`action-log-${playerName}`);
+                const actionItem = document.createElement('li');
+                actionItem.textContent = `[${currentStreet}] ${blindAction}`;
+                
+                // Store this as the last action
+                playerLastActions[playerName] = blindAction;
+                
+                // Keep only the last 5 actions
+                while (log.children.length >= 5) {
+                    log.removeChild(log.firstChild);
+                }
+                
+                log.appendChild(actionItem);
+                return;
+            }
+        }
+    }
+    
     // Check if this is the same as the player's last action
     if (playerLastActions[playerName] === currentAction) {
         return; // Skip if it's a duplicate action
@@ -88,8 +222,13 @@ function logPlayerAction(playerName, action, amount = '') {
 }
 
 function clearPlayerHUDs() {
-    document.querySelectorAll('[id^="hud-"]').forEach(hud => hud.remove());
+    document.querySelectorAll('[id^="hud-"]').forEach(hud => {
+        const playerName = hud.querySelector('h4').textContent.split(' SMALL')[0]; // Get original name
+        hud.querySelector('h4').textContent = playerName; // Reset to original name
+        hud.remove();
+    });
     Object.keys(playerLastActions).forEach(key => delete playerLastActions[key]);
+    Object.keys(playerBlindStatus).forEach(key => delete playerBlindStatus[key]);
     currentStreet = 'Preflop';
 }
 
@@ -99,7 +238,6 @@ function setupActionObserver() {
 
     const observer = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
-            // Update current street when community cards change
             if (mutation.target.classList.contains('table-cards')) {
                 currentStreet = updateCurrentStreet();
                 if (mutation.target.children.length === 0) {
